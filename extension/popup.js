@@ -106,16 +106,11 @@ fetchBtn.addEventListener("click", async () => {
       return;
     }
 
-    // Trigger markdown file download in the browser
-    const blob = new Blob([data.markdown], { type: "text/markdown;charset=utf-8" });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = (data.title || "subtitles") + ".md";
-    a.click();
-    URL.revokeObjectURL(blobUrl);
-
-    showSuccess("Done! File downloaded.");
+    // Store result and open the result page in a new tab
+    chrome.storage.local.set({ subtitleResult: data }, () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL("result.html") });
+      window.close();
+    });
   } catch (e) {
     showError("Network error: " + e.message);
   } finally {

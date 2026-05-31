@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bilibili Subtitles</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #0d1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e6edf3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 600px;
+    }
+
+    #download-btn {
+      padding: 7px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: transparent;
+      color: #58a6ff;
+      border: 1px solid #58a6ff;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #download-btn:hover { background: #58a6ff; color: #0d1117; }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px 60px;
+    }
+
+    .preview-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 40px 48px;
+    }
+
+    .markdown-body { max-width: 100%; }
+
+    #loading {
+      color: #8b949e;
+      text-align: center;
+      margin-top: 80px;
+      font-size: 1rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#fb7299"/>
+      <path d="M9 8l-3 2.5V16h10V10.5L13 8H9z" fill="white" opacity="0.9"/>
+      <circle cx="10" cy="13" r="1.2" fill="#fb7299"/>
+      <circle cx="14" cy="13" r="1.2" fill="#fb7299"/>
+    </svg>
+    <h1 id="page-title">Bilibili Subtitles</h1>
+  </div>
+  <button id="download-btn">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M7.47 10.78a.75.75 0 001.06 0l3.75-3.75a.75.75 0 00-1.06-1.06L8.75 8.44V1.75a.75.75 0 00-1.5 0v6.69L4.78 5.97a.75.75 0 00-1.06 1.06l3.75 3.75zM1.75 13a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H1.75z"/>
+    </svg>
+    Download .md
+  </button>
+</header>
+
+<div id="loading"><span class="spinner"></span>Loading…</div>
+
+<div class="container" style="display:none" id="content">
+  <div class="preview-card">
+    <div id="preview" class="markdown-body"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script>
+  let currentTitle = "subtitles";
+  let currentMarkdown = "";
+
+  chrome.storage.local.get(["subtitleResult"], ({ subtitleResult }) => {
+    document.getElementById("loading").style.display = "none";
+
+    if (!subtitleResult) {
+      document.getElementById("loading").textContent = "No data found. Please fetch from the extension popup.";
+      document.getElementById("loading").style.display = "block";
+      return;
+    }
+
+    currentTitle    = subtitleResult.title || "subtitles";
+    currentMarkdown = subtitleResult.markdown || "";
+
+    document.getElementById("page-title").textContent = currentTitle.replace(/-/g, " ");
+    document.getElementById("preview").innerHTML = marked.parse(currentMarkdown);
+    document.getElementById("content").style.display = "block";
+
+    // Clear storage after reading
+    chrome.storage.local.remove("subtitleResult");
+  });
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    const blob = new Blob([currentMarkdown], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = currentTitle + ".md";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+</script>
+</body>
+</html>

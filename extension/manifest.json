@@ -3,7 +3,7 @@
   "name": "Bilibili Subtitle Downloader",
   "version": "1.0.0",
   "description": "Fetch subtitles and AI summary for the current Bilibili video.",
-  "permissions": ["cookies", "activeTab", "storage"],
+  "permissions": ["cookies", "activeTab", "storage", "tabs"],
   "host_permissions": [
     "https://www.bilibili.com/*",
     "http://localhost/*",
