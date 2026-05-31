@@ -82,12 +82,12 @@ def gemini_summarize(entries: list, video_url: str, api_key: str) -> list[dict]:
         if e.get("content", "").strip()
     ]
     prompt = f"""You are given a video transcript with timestamps in seconds.
-Divide it into logical topic sections and write a detailed summary for each section.
+Divide it into logical topic sections and write a thorough, detailed summary for each section.
 
 Return ONLY a JSON array — no markdown fences, no explanation. Each object must have:
 - "title": short section title (5-8 words)
 - "start_time": timestamp in seconds (float) where this section begins
-- "summary": detailed summary (6-10 sentences) covering the key points, arguments, examples, and conclusions discussed in this section. Include specific details, numbers, or names mentioned.
+- "summary": a thorough summary written as flowing prose (aim for 10-15 sentences). Cover every key point, argument, explanation, and example raised. Preserve specific details such as names, numbers, technical terms, and quoted phrases. Explain the reasoning or context behind each point, not just what was said. A reader who has not watched the video should come away with a complete and nuanced understanding of what was discussed in this section.
 
 Transcript:
 {chr(10).join(transcript_lines)}
