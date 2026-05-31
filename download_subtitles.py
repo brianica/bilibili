@@ -74,7 +74,7 @@ def gemini_summarize(entries: list, video_url: str, api_key: str) -> list[dict]:
     import google.generativeai as genai
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-3.1-flash-lite")
 
     transcript_lines = [
         f"[{e['from']:.1f}s] {e['content']}"
