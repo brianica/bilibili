@@ -45,10 +45,7 @@ def fetch_subtitles(url: str, sessdata: str, bili_jct: str, buvid3: str) -> dict
     info = sync(v.get_info())
 
     page_match = PAGE_PATTERN.search(url)
-    if page_match:
-        cid = info["pages"][int(page_match.group(1)) - 1]["cid"]
-    else:
-        cid = info["cid"]
+    cid = info["pages"][int(page_match.group(1)) - 1]["cid"] if page_match else info["cid"]
 
     sub = sync(v.get_subtitle(cid))
     sub_list = sub.get("subtitles", [])
@@ -66,7 +63,43 @@ def fetch_subtitles(url: str, sessdata: str, bili_jct: str, buvid3: str) -> dict
     return {"info": info, "entries": entries}
 
 
-def build_markdown(url: str, info: dict, entries: list) -> str:
+def gemini_summarize(entries: list, video_url: str, api_key: str) -> list[dict]:
+    """Ask Gemini to split the transcript into topic sections and summarize each.
+
+    Returns a list of {"title": str, "start_time": float, "summary": str}.
+    """
+    import google.generativeai as genai
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+
+    transcript_lines = [
+        f"[{entry['from']:.1f}s] {entry['content']}"
+        for entry in entries
+        if entry.get("content", "").strip()
+    ]
+    transcript_text = "\n".join(transcript_lines)
+
+    prompt = f"""You are given a video transcript with timestamps in seconds.
+Divide it into logical topic sections and write a concise summary for each section.
+
+Return ONLY a JSON array — no markdown fences, no explanation. Each object must have:
+- "title": short section title (5-8 words)
+- "start_time": timestamp in seconds (float) where this section begins
+- "summary": 2-4 sentence summary of what is discussed
+
+Transcript:
+{transcript_text}
+"""
+
+    response = model.generate_content(prompt)
+    raw = response.text.strip()
+    # Strip accidental markdown code fences
+    raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("` \n")
+    return json.loads(raw)
+
+
+def build_markdown(url: str, info: dict, entries: list, summary_sections: list | None) -> tuple[str, str]:
     title = info.get("title", "Untitled")
     slug = re.sub(r"[\s_-]+", "-", re.sub(r"[^\w\s-]", "", title).strip().lower())
 
@@ -80,7 +113,21 @@ def build_markdown(url: str, info: dict, entries: list) -> str:
         lines.append(f"**Likes:** {info['stat']['like']}  ")
     lines.append("\n---\n")
 
-    # Group entries into per-minute sections
+    # Summary block (before raw transcript)
+    if summary_sections:
+        lines.append("## Summary\n")
+        for sec in summary_sections:
+            t = sec.get("start_time", 0)
+            sec_title = sec.get("title", "Section")
+            summary = sec.get("summary", "")
+            link = video_url_at(url, t)
+            ts = fmt_time(t)
+            lines.append(f"### [{sec_title}]({link}) `{ts}`\n")
+            lines.append(f"{summary}\n")
+        lines.append("\n---\n")
+
+    # Raw transcript grouped by minute
+    lines.append("## Transcript\n")
     current_minute = -1
     for entry in entries:
         t = entry.get("from", 0)
@@ -88,17 +135,11 @@ def build_markdown(url: str, info: dict, entries: list) -> str:
         content = entry.get("content", "").strip()
         if not content:
             continue
-
         if minute != current_minute:
             current_minute = minute
             section_t = minute * 60
-            ts = fmt_time(section_t)
-            link = video_url_at(url, section_t)
-            lines.append(f"\n## [{ts}]({link})\n")
-
-        ts = fmt_time(t)
-        link = video_url_at(url, t)
-        lines.append(f"[{ts}]({link}) {content}  ")
+            lines.append(f"\n### [{fmt_time(section_t)}]({video_url_at(url, section_t)})\n")
+        lines.append(f"[{fmt_time(t)}]({video_url_at(url, t)}) {content}  ")
 
     return slug, "\n".join(lines)
 
@@ -108,6 +149,7 @@ class SubtitleRequest(BaseModel):
     sessdata: str = ""
     bili_jct: str = ""
     buvid3: str = ""
+    gemini_api_key: str = ""
 
 
 @app.get("/")
@@ -125,5 +167,14 @@ def get_subtitles(req: SubtitleRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    slug, markdown = build_markdown(req.url, data["info"], data["entries"])
+    summary_sections = None
+    if req.gemini_api_key:
+        try:
+            summary_sections = gemini_summarize(data["entries"], req.url, req.gemini_api_key)
+        except Exception as e:
+            # Non-fatal: proceed without summary if Gemini fails
+            summary_sections = None
+            print(f"Gemini summarization failed: {e}")
+
+    slug, markdown = build_markdown(req.url, data["info"], data["entries"], summary_sections)
     return {"title": slug, "markdown": markdown}
