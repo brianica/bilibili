@@ -48,12 +48,12 @@
       margin-bottom: 28px;
     }
 
-    .input-card label {
+    .field-label {
       display: block;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 500;
       color: #8b949e;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
@@ -61,33 +61,77 @@
     .input-row {
       display: flex;
       gap: 10px;
+      margin-bottom: 18px;
     }
 
-    #url-input {
-      flex: 1;
-      padding: 10px 14px;
-      font-size: 0.95rem;
+    .cookie-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .cookie-field { display: flex; flex-direction: column; }
+
+    input[type="text"], input[type="password"] {
+      padding: 9px 12px;
+      font-size: 0.92rem;
       background: #0d1117;
       border: 1px solid #30363d;
       border-radius: 6px;
       color: #e6edf3;
       outline: none;
       transition: border-color 0.15s;
+      width: 100%;
     }
 
-    #url-input:focus { border-color: #58a6ff; }
-    #url-input::placeholder { color: #484f58; }
+    input[type="text"]:focus,
+    input[type="password"]:focus { border-color: #58a6ff; }
+    input::placeholder { color: #484f58; }
+
+    .cookie-hint {
+      font-size: 0.78rem;
+      color: #484f58;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .cookie-hint a { color: #58a6ff; text-decoration: none; }
+    .cookie-hint a:hover { text-decoration: underline; }
+
+    details {
+      margin-bottom: 18px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: #8b949e;
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    summary::before {
+      content: "▶";
+      font-size: 0.65rem;
+      transition: transform 0.15s;
+    }
+
+    details[open] summary::before { transform: rotate(90deg); }
 
     #fetch-btn {
-      padding: 10px 20px;
-      font-size: 0.95rem;
+      width: 100%;
+      padding: 11px 20px;
+      font-size: 0.98rem;
       font-weight: 600;
       background: #238636;
       color: #fff;
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      white-space: nowrap;
       transition: background 0.15s;
     }
 
@@ -181,11 +225,38 @@
 
 <div class="container">
   <div class="input-card">
-    <label>Bilibili Video URL</label>
+
+    <label class="field-label">Bilibili Video URL</label>
     <div class="input-row">
       <input id="url-input" type="text" placeholder="https://www.bilibili.com/video/BV…" autocomplete="off" spellcheck="false">
-      <button id="fetch-btn">Fetch Subtitles</button>
     </div>
+
+    <details id="creds-details">
+      <summary>Session credentials (required for subtitles)</summary>
+      <div style="margin-top:14px;">
+        <div class="cookie-row">
+          <div class="cookie-field">
+            <label class="field-label">SESSDATA</label>
+            <input id="sessdata" type="password" placeholder="SESSDATA cookie value" autocomplete="off">
+          </div>
+          <div class="cookie-field">
+            <label class="field-label">bili_jct</label>
+            <input id="bili_jct" type="password" placeholder="bili_jct cookie value" autocomplete="off">
+          </div>
+          <div class="cookie-field">
+            <label class="field-label">buvid3</label>
+            <input id="buvid3" type="password" placeholder="buvid3 cookie value" autocomplete="off">
+          </div>
+        </div>
+        <p class="cookie-hint">
+          Log in to bilibili.com, open DevTools → Application → Cookies → <code>https://www.bilibili.com</code>,
+          and copy the values for <strong>SESSDATA</strong>, <strong>bili_jct</strong>, and <strong>buvid3</strong>.
+          These are only sent to your own server and never stored.
+        </p>
+      </div>
+    </details>
+
+    <button id="fetch-btn">Fetch Subtitles</button>
     <div id="error"></div>
   </div>
 
@@ -210,11 +281,18 @@
   let currentTitle = "subtitles";
   let currentMarkdown = "";
 
-  const urlInput = document.getElementById("url-input");
-  const fetchBtn = document.getElementById("fetch-btn");
-  const errorEl = document.getElementById("error");
-  const resultEl = document.getElementById("result");
-  const previewEl = document.getElementById("preview");
+  const urlInput    = document.getElementById("url-input");
+  const sessdataEl  = document.getElementById("sessdata");
+  const biliJctEl   = document.getElementById("bili_jct");
+  const buvid3El    = document.getElementById("buvid3");
+  const fetchBtn    = document.getElementById("fetch-btn");
+  const errorEl     = document.getElementById("error");
+  const resultEl    = document.getElementById("result");
+  const previewEl   = document.getElementById("preview");
+  const credsDetails = document.getElementById("creds-details");
+
+  // Auto-open credentials section if fields are empty on first focus of URL input
+  urlInput.addEventListener("focus", () => { credsDetails.open = true; }, { once: true });
 
   function setLoading(on) {
     fetchBtn.disabled = on;
@@ -229,23 +307,32 @@
   }
 
   async function fetchSubtitles() {
-    const url = urlInput.value.trim();
+    const url      = urlInput.value.trim();
+    const sessdata = sessdataEl.value.trim();
+    const bili_jct = biliJctEl.value.trim();
+    const buvid3   = buvid3El.value.trim();
+
     showError("");
     resultEl.style.display = "none";
 
     if (!url) { showError("Please enter a Bilibili URL."); return; }
+    if (!sessdata || !bili_jct || !buvid3) {
+      showError("All three session cookies (SESSDATA, bili_jct, buvid3) are required to fetch subtitles.");
+      credsDetails.open = true;
+      return;
+    }
 
     setLoading(true);
     try {
       const res = await fetch("/subtitles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, sessdata, bili_jct, buvid3 }),
       });
       const data = await res.json();
       if (!res.ok) { showError(data.detail || "Failed to fetch subtitles."); return; }
 
-      currentTitle = data.title;
+      currentTitle    = data.title;
       currentMarkdown = data.markdown;
       previewEl.innerHTML = marked.parse(currentMarkdown);
       resultEl.style.display = "block";

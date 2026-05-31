@@ -12,9 +12,15 @@ def slugify(text: str) -> str:
     return re.sub(r"[\s_-]+", "-", text)
 
 
-def download_subtitles(url: str, output_dir: str = ".") -> Path:
+def download_subtitles(
+    url: str,
+    sessdata: str = "",
+    bili_jct: str = "",
+    buvid3: str = "",
+    output_dir: str = ".",
+) -> Path:
     print(f"Loading: {url}")
-    loader = BiliBiliLoader([url])
+    loader = BiliBiliLoader([url], sessdata=sessdata, bili_jct=bili_jct, buvid3=buvid3)
     docs = loader.load()
 
     if not docs:
@@ -47,10 +53,20 @@ def download_subtitles(url: str, output_dir: str = ".") -> Path:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python download_subtitles.py <bilibili_url> [output_dir]")
-        sys.exit(1)
+    import argparse
 
-    url = sys.argv[1]
-    out = sys.argv[2] if len(sys.argv) > 2 else "."
-    download_subtitles(url, out)
+    parser = argparse.ArgumentParser(description="Download Bilibili subtitles as markdown.")
+    parser.add_argument("url", help="Bilibili video URL")
+    parser.add_argument("--sessdata", default="", help="SESSDATA cookie")
+    parser.add_argument("--bili-jct", default="", help="bili_jct cookie")
+    parser.add_argument("--buvid3", default="", help="buvid3 cookie")
+    parser.add_argument("--output-dir", default=".", help="Output directory")
+    args = parser.parse_args()
+
+    download_subtitles(
+        args.url,
+        sessdata=args.sessdata,
+        bili_jct=args.bili_jct,
+        buvid3=args.buvid3,
+        output_dir=args.output_dir,
+    )

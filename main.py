@@ -12,6 +12,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class SubtitleRequest(BaseModel):
     url: str
+    sessdata: str = ""
+    bili_jct: str = ""
+    buvid3: str = ""
 
 
 @app.get("/")
@@ -22,7 +25,12 @@ def index():
 @app.post("/subtitles")
 def get_subtitles(req: SubtitleRequest):
     try:
-        loader = BiliBiliLoader([req.url])
+        loader = BiliBiliLoader(
+            [req.url],
+            sessdata=req.sessdata,
+            bili_jct=req.bili_jct,
+            buvid3=req.buvid3,
+        )
         docs = loader.load()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
