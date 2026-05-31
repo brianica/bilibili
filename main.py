@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -33,10 +34,11 @@ def get_subtitles(req: SubtitleRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    gemini_key = req.gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
     summary_sections = None
-    if req.gemini_api_key:
+    if gemini_key:
         try:
-            summary_sections = gemini_summarize(data["entries"], req.url, req.gemini_api_key)
+            summary_sections = gemini_summarize(data["entries"], req.url, gemini_key)
         except Exception as e:
             print(f"Gemini summarisation failed: {e}")
 

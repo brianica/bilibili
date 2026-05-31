@@ -175,6 +175,7 @@ def save_markdown(slug: str, markdown: str, output_dir: str = ".") -> Path:
 
 
 if __name__ == "__main__":
+    import os
     import argparse
 
     parser = argparse.ArgumentParser(description="Download Bilibili subtitles as timestamped markdown.")
@@ -182,18 +183,20 @@ if __name__ == "__main__":
     parser.add_argument("--sessdata", required=True, help="SESSDATA cookie")
     parser.add_argument("--bili-jct", required=True, help="bili_jct cookie")
     parser.add_argument("--buvid3", required=True, help="buvid3 cookie")
-    parser.add_argument("--gemini-api-key", default="", help="Gemini API key for AI summary (optional)")
+    parser.add_argument("--gemini-api-key", default="", help="Gemini API key (overrides GEMINI_API_KEY env var)")
     parser.add_argument("--output-dir", default=".", help="Output directory")
     args = parser.parse_args()
+
+    gemini_key = args.gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
 
     print("Fetching subtitles...")
     data = fetch_subtitles(args.url, args.sessdata, args.bili_jct, args.buvid3)
 
     summary_sections = None
-    if args.gemini_api_key:
+    if gemini_key:
         print("Summarising with Gemini...")
         try:
-            summary_sections = gemini_summarize(data["entries"], args.url, args.gemini_api_key)
+            summary_sections = gemini_summarize(data["entries"], args.url, gemini_key)
         except Exception as e:
             print(f"Gemini summarisation failed: {e}")
 
