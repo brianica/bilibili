@@ -87,7 +87,7 @@ Divide it into logical topic sections and write a thorough, detailed summary for
 Return ONLY a JSON array — no markdown fences, no explanation. Each object must have:
 - "title": short section title (5-8 words)
 - "start_time": timestamp in seconds (float) where this section begins
-- "summary": a thorough bullet-point summary (8-12 bullets). Each bullet covers one key point, argument, example, or conclusion. Preserve specific details such as names, numbers, technical terms, and quoted phrases. Explain the reasoning or context behind each point, not just what was said.
+- "summary": a thorough bullet-point summary (5-15 bullets). Each bullet covers one key point, argument, example, or conclusion. Preserve specific details such as names, numbers, technical terms, and quoted phrases. Explain the reasoning or context behind each point, not just what was said.
 
 Transcript:
 {chr(10).join(transcript_lines)}
