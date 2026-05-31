@@ -128,12 +128,10 @@ def build_markdown(url: str, info: dict, entries: list, summary_sections: list |
     lines.append("## Transcript\n")
 
     # Group consecutive subtitle entries into paragraphs.
-    # A new paragraph starts when the gap to the previous entry exceeds
-    # PAUSE_THRESHOLD seconds, or when the minute-section header changes.
+    # A new paragraph starts when the gap to the previous entry exceeds PAUSE_THRESHOLD.
     PAUSE_THRESHOLD = 1.5  # seconds
 
     valid = [e for e in entries if e.get("content", "").strip()]
-    current_minute = -1
     para_words: list[str] = []
     para_start_t: float = 0.0
     prev_end_t: float = 0.0
@@ -144,26 +142,15 @@ def build_markdown(url: str, info: dict, entries: list, summary_sections: list |
             ts = fmt_time(para_start_t)
             lines.append(f"[{ts}]({link}) {' '.join(para_words)}\n")
 
-    for i, entry in enumerate(valid):
+    for entry in valid:
         t = entry["from"]
         end_t = entry.get("to", t)
         content = entry["content"].strip()
-        minute = int(t) // 60
 
-        # Emit minute-section header when minute changes
-        if minute != current_minute:
-            flush_para(lines, para_words, para_start_t, url)
-            para_words = []
-            current_minute = minute
-            section_t = minute * 60
-            lines.append(f"\n### [{fmt_time(section_t)}]({video_url_at(url, section_t)})\n")
+        if not para_words:
             para_start_t = t
-            prev_end_t = end_t
             para_words.append(content)
-            continue
-
-        gap = t - prev_end_t
-        if gap > PAUSE_THRESHOLD:
+        elif t - prev_end_t > PAUSE_THRESHOLD:
             flush_para(lines, para_words, para_start_t, url)
             para_words = [content]
             para_start_t = t
