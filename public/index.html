@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bilibili Subtitle Downloader</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header svg { flex-shrink: 0; }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #e6edf3;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+
+    .input-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #8b949e;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .cookie-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .cookie-field { display: flex; flex-direction: column; }
+
+    input[type="text"], input[type="password"] {
+      padding: 9px 12px;
+      font-size: 0.92rem;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus { border-color: #58a6ff; }
+    input::placeholder { color: #484f58; }
+
+    .cookie-hint {
+      font-size: 0.78rem;
+      color: #484f58;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .cookie-hint a { color: #58a6ff; text-decoration: none; }
+    .cookie-hint a:hover { text-decoration: underline; }
+
+    details {
+      margin-bottom: 18px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: #8b949e;
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    summary::before {
+      content: "▶";
+      font-size: 0.65rem;
+      transition: transform 0.15s;
+    }
+
+    details[open] summary::before { transform: rotate(90deg); }
+
+    #fetch-btn {
+      width: 100%;
+      padding: 11px 20px;
+      font-size: 0.98rem;
+      font-weight: 600;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #fetch-btn:hover:not(:disabled) { background: #2ea043; }
+    #fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #error {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #3d1a1a;
+      border: 1px solid #f85149;
+      border-radius: 6px;
+      color: #f85149;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result { display: none; }
+
+    .result-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .result-toolbar h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #8b949e;
+    }
+
+    #download-btn {
+      padding: 8px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: transparent;
+      color: #58a6ff;
+      border: 1px solid #58a6ff;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #download-btn:hover {
+      background: #58a6ff;
+      color: #0d1117;
+    }
+
+    .preview-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 32px 40px;
+      overflow: auto;
+    }
+
+    .markdown-body { max-width: 100%; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <rect width="24" height="24" rx="6" fill="#fb7299"/>
+    <path d="M9 8l-3 2.5V16h10V10.5L13 8H9z" fill="white" opacity="0.9"/>
+    <circle cx="10" cy="13" r="1.2" fill="#fb7299"/>
+    <circle cx="14" cy="13" r="1.2" fill="#fb7299"/>
+    <path d="M7 8.5V7" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M17 8.5V7" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+  </svg>
+  <h1>Bilibili Subtitle Downloader</h1>
+</header>
+
+<div class="container">
+  <div class="input-card">
+
+    <label class="field-label">Bilibili Video URL</label>
+    <div class="input-row">
+      <input id="url-input" type="text" placeholder="https://www.bilibili.com/video/BV…" autocomplete="off" spellcheck="false">
+    </div>
+
+    <details id="creds-details">
+      <summary>Session credentials (required for subtitles)</summary>
+      <div style="margin-top:14px;">
+        <div class="cookie-row">
+          <div class="cookie-field">
+            <label class="field-label">SESSDATA</label>
+            <input id="sessdata" type="password" placeholder="SESSDATA cookie value" autocomplete="off">
+          </div>
+          <div class="cookie-field">
+            <label class="field-label">bili_jct</label>
+            <input id="bili_jct" type="password" placeholder="bili_jct cookie value" autocomplete="off">
+          </div>
+          <div class="cookie-field">
+            <label class="field-label">buvid3</label>
+            <input id="buvid3" type="password" placeholder="buvid3 cookie value" autocomplete="off">
+          </div>
+        </div>
+        <p class="cookie-hint">
+          Log in to bilibili.com, open DevTools → Application → Cookies → <code>https://www.bilibili.com</code>,
+          and copy the values for <strong>SESSDATA</strong>, <strong>bili_jct</strong>, and <strong>buvid3</strong>.
+          These are only sent to your own server and never stored.
+        </p>
+      </div>
+    </details>
+
+    <details id="gemini-details">
+      <summary>Gemini API key (optional — enables AI summary)</summary>
+      <div style="margin-top:14px;">
+        <label class="field-label">Gemini API Key</label>
+        <input id="gemini-key" type="password" placeholder="AIza…" autocomplete="off" style="max-width:420px;">
+        <p class="cookie-hint">
+          When provided, Gemini will analyse the transcript and produce a topic-by-topic summary
+          (with video links) placed above the raw transcript.
+          Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+        </p>
+      </div>
+    </details>
+
+    <button id="fetch-btn">Fetch Subtitles</button>
+    <div id="error"></div>
+  </div>
+
+  <div id="result">
+    <div class="result-toolbar">
+      <h2>Transcript</h2>
+      <button id="download-btn">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M7.47 10.78a.75.75 0 001.06 0l3.75-3.75a.75.75 0 00-1.06-1.06L8.75 8.44V1.75a.75.75 0 00-1.5 0v6.69L4.78 5.97a.75.75 0 00-1.06 1.06l3.75 3.75zM1.75 13a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H1.75z"/>
+        </svg>
+        Download .md
+      </button>
+    </div>
+    <div class="preview-card">
+      <div id="preview" class="markdown-body"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script>
+  let currentTitle = "subtitles";
+  let currentMarkdown = "";
+
+  const urlInput     = document.getElementById("url-input");
+  const sessdataEl   = document.getElementById("sessdata");
+  const biliJctEl    = document.getElementById("bili_jct");
+  const buvid3El     = document.getElementById("buvid3");
+  const geminiKeyEl  = document.getElementById("gemini-key");
+  const fetchBtn     = document.getElementById("fetch-btn");
+  const errorEl      = document.getElementById("error");
+  const resultEl     = document.getElementById("result");
+  const previewEl    = document.getElementById("preview");
+  const credsDetails = document.getElementById("creds-details");
+
+  // Auto-open credentials section on first focus of URL input
+  urlInput.addEventListener("focus", () => { credsDetails.open = true; }, { once: true });
+
+  function setLoading(on, withGemini) {
+    fetchBtn.disabled = on;
+    if (!on) { fetchBtn.innerHTML = "Fetch Subtitles"; return; }
+    fetchBtn.innerHTML = withGemini
+      ? '<span class="spinner"></span>Fetching &amp; summarising…'
+      : '<span class="spinner"></span>Loading…';
+  }
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = msg ? "block" : "none";
+  }
+
+  async function fetchSubtitles() {
+    const url             = urlInput.value.trim();
+    const sessdata        = sessdataEl.value.trim();
+    const bili_jct        = biliJctEl.value.trim();
+    const buvid3          = buvid3El.value.trim();
+    const gemini_api_key  = geminiKeyEl.value.trim();
+
+    showError("");
+    resultEl.style.display = "none";
+
+    if (!url) { showError("Please enter a Bilibili URL."); return; }
+    if (!sessdata || !bili_jct || !buvid3) {
+      showError("All three session cookies (SESSDATA, bili_jct, buvid3) are required to fetch subtitles.");
+      credsDetails.open = true;
+      return;
+    }
+
+    setLoading(true, !!gemini_api_key);
+    try {
+      const res = await fetch("/subtitles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, sessdata, bili_jct, buvid3, gemini_api_key }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.detail || "Failed to fetch subtitles."); return; }
+
+      currentTitle    = data.title;
+      currentMarkdown = data.markdown;
+      previewEl.innerHTML = marked.parse(currentMarkdown);
+      resultEl.style.display = "block";
+      resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      showError("Network error: " + e.message);
+    } finally {
+      setLoading(false, false);
+    }
+  }
+
+  fetchBtn.addEventListener("click", fetchSubtitles);
+  urlInput.addEventListener("keydown", (e) => { if (e.key === "Enter") fetchSubtitles(); });
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    const blob = new Blob([currentMarkdown], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = currentTitle + ".md";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+</script>
+</body>
+</html>
