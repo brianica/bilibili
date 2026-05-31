@@ -305,6 +305,23 @@
   const previewEl    = document.getElementById("preview");
   const credsDetails = document.getElementById("creds-details");
 
+  // ── Prefill from Chrome extension via URL fragment ──────────────────────────
+  (function prefillFromHash() {
+    const match = location.hash.match(/[#&]prefill=([^&]*)/);
+    if (!match) return;
+    try {
+      const data = JSON.parse(atob(match[1]));
+      if (data.url)      urlInput.value   = data.url;
+      if (data.sessdata) sessdataEl.value = data.sessdata;
+      if (data.bili_jct) biliJctEl.value  = data.bili_jct;
+      if (data.buvid3)   buvid3El.value   = data.buvid3;
+      if (data.url || data.sessdata) credsDetails.open = true;
+    } catch (_) {}
+    // Clear the hash so cookies don't stay in browser history
+    history.replaceState(null, "", location.pathname + location.search);
+  })();
+
+
   // Auto-open credentials section on first focus of URL input
   urlInput.addEventListener("focus", () => { credsDetails.open = true; }, { once: true });
 
