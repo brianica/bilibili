@@ -1,0 +1,2 @@
+langchain-community
+bilibili-api-python
