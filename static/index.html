@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bilibili Subtitle Downloader</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header svg { flex-shrink: 0; }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #e6edf3;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+
+    .input-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+
+    .input-card label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #8b949e;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    #url-input {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #url-input:focus { border-color: #58a6ff; }
+    #url-input::placeholder { color: #484f58; }
+
+    #fetch-btn {
+      padding: 10px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    #fetch-btn:hover:not(:disabled) { background: #2ea043; }
+    #fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #error {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #3d1a1a;
+      border: 1px solid #f85149;
+      border-radius: 6px;
+      color: #f85149;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result { display: none; }
+
+    .result-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .result-toolbar h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #8b949e;
+    }
+
+    #download-btn {
+      padding: 8px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: transparent;
+      color: #58a6ff;
+      border: 1px solid #58a6ff;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #download-btn:hover {
+      background: #58a6ff;
+      color: #0d1117;
+    }
+
+    .preview-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 32px 40px;
+      overflow: auto;
+    }
+
+    .markdown-body { max-width: 100%; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <rect width="24" height="24" rx="6" fill="#fb7299"/>
+    <path d="M9 8l-3 2.5V16h10V10.5L13 8H9z" fill="white" opacity="0.9"/>
+    <circle cx="10" cy="13" r="1.2" fill="#fb7299"/>
+    <circle cx="14" cy="13" r="1.2" fill="#fb7299"/>
+    <path d="M7 8.5V7" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M17 8.5V7" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+  </svg>
+  <h1>Bilibili Subtitle Downloader</h1>
+</header>
+
+<div class="container">
+  <div class="input-card">
+    <label>Bilibili Video URL</label>
+    <div class="input-row">
+      <input id="url-input" type="text" placeholder="https://www.bilibili.com/video/BV…" autocomplete="off" spellcheck="false">
+      <button id="fetch-btn">Fetch Subtitles</button>
+    </div>
+    <div id="error"></div>
+  </div>
+
+  <div id="result">
+    <div class="result-toolbar">
+      <h2>Transcript</h2>
+      <button id="download-btn">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M7.47 10.78a.75.75 0 001.06 0l3.75-3.75a.75.75 0 00-1.06-1.06L8.75 8.44V1.75a.75.75 0 00-1.5 0v6.69L4.78 5.97a.75.75 0 00-1.06 1.06l3.75 3.75zM1.75 13a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H1.75z"/>
+        </svg>
+        Download .md
+      </button>
+    </div>
+    <div class="preview-card">
+      <div id="preview" class="markdown-body"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script>
+  let currentTitle = "subtitles";
+  let currentMarkdown = "";
+
+  const urlInput = document.getElementById("url-input");
+  const fetchBtn = document.getElementById("fetch-btn");
+  const errorEl = document.getElementById("error");
+  const resultEl = document.getElementById("result");
+  const previewEl = document.getElementById("preview");
+
+  function setLoading(on) {
+    fetchBtn.disabled = on;
+    fetchBtn.innerHTML = on
+      ? '<span class="spinner"></span>Loading…'
+      : "Fetch Subtitles";
+  }
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = msg ? "block" : "none";
+  }
+
+  async function fetchSubtitles() {
+    const url = urlInput.value.trim();
+    showError("");
+    resultEl.style.display = "none";
+
+    if (!url) { showError("Please enter a Bilibili URL."); return; }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/subtitles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.detail || "Failed to fetch subtitles."); return; }
+
+      currentTitle = data.title;
+      currentMarkdown = data.markdown;
+      previewEl.innerHTML = marked.parse(currentMarkdown);
+      resultEl.style.display = "block";
+      resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      showError("Network error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  fetchBtn.addEventListener("click", fetchSubtitles);
+  urlInput.addEventListener("keydown", (e) => { if (e.key === "Enter") fetchSubtitles(); });
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    const blob = new Blob([currentMarkdown], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = currentTitle + ".md";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+</script>
+</body>
+</html>

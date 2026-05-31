@@ -1,2 +1,4 @@
 langchain-community
 bilibili-api-python
+fastapi
+uvicorn[standard]
