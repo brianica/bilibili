@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download Bilibili video subtitles as timestamped markdown."""
+"""Download Bilibili video subtitles as timestamped markdown, with optional Gemini summary."""
 
 import sys
 import re
@@ -28,13 +28,12 @@ def video_url_at(base_url: str, t: float) -> str:
     return f"{clean}?t={int(t)}"
 
 
-def download_subtitles(
-    url: str,
-    sessdata: str,
-    bili_jct: str,
-    buvid3: str,
-    output_dir: str = ".",
-) -> Path:
+def fetch_subtitles(url: str, sessdata: str, bili_jct: str, buvid3: str) -> dict:
+    """Fetch video info and subtitle entries from Bilibili.
+
+    Returns {"info": dict, "entries": list[dict]} where each entry has
+    "from" (seconds), "to", and "content" keys.
+    """
     from bilibili_api import sync, video
 
     credential = video.Credential(sessdata=sessdata, bili_jct=bili_jct, buvid3=buvid3)
@@ -47,30 +46,65 @@ def download_subtitles(
         if aid:
             v = video.Video(aid=int(aid.group()[2:]), credential=credential)
         else:
-            print(f"No valid video ID in URL: {url}")
-            sys.exit(1)
+            raise ValueError(f"No valid video ID found in URL: {url}")
 
-    print("Fetching video info...")
     info = sync(v.get_info())
 
     page_match = PAGE_PATTERN.search(url)
     cid = info["pages"][int(page_match.group(1)) - 1]["cid"] if page_match else info["cid"]
 
-    print("Fetching subtitles...")
     sub = sync(v.get_subtitle(cid))
     sub_list = sub.get("subtitles", [])
     if not sub_list:
-        print("No subtitles found for this video.")
-        sys.exit(1)
+        raise ValueError("No subtitles found for this video.")
 
     sub_url = sub_list[0].get("subtitle_url", "")
     if not sub_url.startswith("http"):
         sub_url = "https:" + sub_url
 
     entries = json.loads(requests.get(sub_url, timeout=15).content).get("body", [])
+    return {"info": info, "entries": entries}
 
+
+def gemini_summarize(entries: list, video_url: str, api_key: str) -> list[dict]:
+    """Ask Gemini to split the transcript into topic sections and summarise each.
+
+    Returns a list of {"title": str, "start_time": float, "summary": str}.
+    """
+    import google.generativeai as genai
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+
+    transcript_lines = [
+        f"[{e['from']:.1f}s] {e['content']}"
+        for e in entries
+        if e.get("content", "").strip()
+    ]
+    prompt = f"""You are given a video transcript with timestamps in seconds.
+Divide it into logical topic sections and write a concise summary for each section.
+
+Return ONLY a JSON array — no markdown fences, no explanation. Each object must have:
+- "title": short section title (5-8 words)
+- "start_time": timestamp in seconds (float) where this section begins
+- "summary": 2-4 sentence summary of what is discussed
+
+Transcript:
+{chr(10).join(transcript_lines)}
+"""
+    response = model.generate_content(prompt)
+    raw = re.sub(r"^```[a-z]*\n?", "", response.text.strip()).rstrip("` \n")
+    return json.loads(raw)
+
+
+def build_markdown(url: str, info: dict, entries: list, summary_sections: list | None = None) -> str:
+    """Assemble the full markdown string.
+
+    If summary_sections is provided it is rendered before the raw transcript.
+    Returns (slug, markdown_text).
+    """
     title = info.get("title", "Untitled")
-    output_path = Path(output_dir) / f"{slugify(title)}.md"
+    slug = slugify(title)
 
     lines = [f"# {title}\n"]
     if info.get("desc"):
@@ -82,6 +116,16 @@ def download_subtitles(
         lines.append(f"**Likes:** {info['stat']['like']}  ")
     lines.append("\n---\n")
 
+    if summary_sections:
+        lines.append("## Summary\n")
+        for sec in summary_sections:
+            t = sec.get("start_time", 0)
+            link = video_url_at(url, t)
+            lines.append(f"### [{sec.get('title', 'Section')}]({link}) `{fmt_time(t)}`\n")
+            lines.append(f"{sec.get('summary', '')}\n")
+        lines.append("\n---\n")
+
+    lines.append("## Transcript\n")
     current_minute = -1
     for entry in entries:
         t = entry.get("from", 0)
@@ -92,12 +136,16 @@ def download_subtitles(
         if minute != current_minute:
             current_minute = minute
             section_t = minute * 60
-            lines.append(f"\n## [{fmt_time(section_t)}]({video_url_at(url, section_t)})\n")
+            lines.append(f"\n### [{fmt_time(section_t)}]({video_url_at(url, section_t)})\n")
         lines.append(f"[{fmt_time(t)}]({video_url_at(url, t)}) {content}  ")
 
-    output_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Saved: {output_path}")
-    return output_path
+    return slug, "\n".join(lines)
+
+
+def save_markdown(slug: str, markdown: str, output_dir: str = ".") -> Path:
+    path = Path(output_dir) / f"{slug}.md"
+    path.write_text(markdown, encoding="utf-8")
+    return path
 
 
 if __name__ == "__main__":
@@ -108,7 +156,21 @@ if __name__ == "__main__":
     parser.add_argument("--sessdata", required=True, help="SESSDATA cookie")
     parser.add_argument("--bili-jct", required=True, help="bili_jct cookie")
     parser.add_argument("--buvid3", required=True, help="buvid3 cookie")
+    parser.add_argument("--gemini-api-key", default="", help="Gemini API key for AI summary (optional)")
     parser.add_argument("--output-dir", default=".", help="Output directory")
     args = parser.parse_args()
 
-    download_subtitles(args.url, args.sessdata, args.bili_jct, args.buvid3, args.output_dir)
+    print("Fetching subtitles...")
+    data = fetch_subtitles(args.url, args.sessdata, args.bili_jct, args.buvid3)
+
+    summary_sections = None
+    if args.gemini_api_key:
+        print("Summarising with Gemini...")
+        try:
+            summary_sections = gemini_summarize(data["entries"], args.url, args.gemini_api_key)
+        except Exception as e:
+            print(f"Gemini summarisation failed: {e}")
+
+    slug, markdown = build_markdown(args.url, data["info"], data["entries"], summary_sections)
+    path = save_markdown(slug, markdown, args.output_dir)
+    print(f"Saved: {path}")
