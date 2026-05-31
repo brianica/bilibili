@@ -87,7 +87,7 @@ Divide it into logical topic sections and write a thorough, detailed summary for
 Return ONLY a JSON array — no markdown fences, no explanation. Each object must have:
 - "title": short section title (5-8 words)
 - "start_time": timestamp in seconds (float) where this section begins
-- "bullets": a JSON array of strings, each string being one bullet point. Aim for 8-12 bullets. Each bullet covers one key point, argument, example, or conclusion. Preserve specific details such as names, numbers, technical terms, and quoted phrases. Explain the reasoning or context behind each point, not just what was said.
+- "summary": a thorough bullet-point summary (8-12 bullets, using "- " prefix). Each bullet covers one key point, argument, example, or conclusion. Preserve specific details such as names, numbers, technical terms, and quoted phrases. Explain the reasoning or context behind each point, not just what was said.
 
 Transcript:
 {chr(10).join(transcript_lines)}
@@ -122,12 +122,7 @@ def build_markdown(url: str, info: dict, entries: list, summary_sections: list |
             t = sec.get("start_time", 0)
             link = video_url_at(url, t)
             lines.append(f"### [{sec.get('title', 'Section')}]({link}) `{fmt_time(t)}`\n")
-            bullets = sec.get("bullets") or []
-            if isinstance(bullets, list):
-                for b in bullets:
-                    lines.append(f"- {b}")
-            else:
-                lines.append(str(bullets))
+            lines.append(sec.get("summary", ""))
             lines.append("")
         lines.append("\n---\n")
 
