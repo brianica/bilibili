@@ -122,7 +122,10 @@ def build_markdown(url: str, info: dict, entries: list, summary_sections: list |
             t = sec.get("start_time", 0)
             link = video_url_at(url, t)
             lines.append(f"### [{sec.get('title', 'Section')}]({link}) `{fmt_time(t)}`\n")
-            lines.append(sec.get("summary", ""))
+            summary = sec.get("summary", "")
+            if isinstance(summary, list):
+                summary = "\n".join(f"- {item}" for item in summary)
+            lines.append(summary)
             lines.append("")
         lines.append("\n---\n")
 
