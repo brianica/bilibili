@@ -11,9 +11,13 @@ from download_subtitles import fetch_subtitles, gemini_summarize, build_markdown
 
 app = FastAPI()
 
+ALLOWED_ORIGINS = [
+    "chrome-extension://YOUR_EXTENSION_ID_HERE",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["POST"],
     allow_headers=["Content-Type"],
 )
