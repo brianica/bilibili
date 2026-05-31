@@ -177,6 +177,16 @@ def save_markdown(slug: str, markdown: str, output_dir: str = ".") -> Path:
 if __name__ == "__main__":
     import os
     import argparse
+    from pathlib import Path as _Path
+
+    # Load .env from the project directory if present
+    _env = _Path(__file__).parent / ".env"
+    if _env.exists():
+        for _line in _env.read_text().splitlines():
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _, _v = _line.partition("=")
+                os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
     parser = argparse.ArgumentParser(description="Download Bilibili subtitles as timestamped markdown.")
     parser.add_argument("url", help="Bilibili video URL")
